@@ -19,7 +19,7 @@ class CRUDGeneric(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         return db.query(self.model).offset(skip).limit(limit).all()
 
     def create(self, db: Session, obj_in: CreateSchemaType) -> ModelType:
-        db_obj = self.model(**obj_in.dict())
+        db_obj = self.model(**obj_in.model_dump())
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -30,7 +30,7 @@ class CRUDGeneric(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     ) -> ModelType:
         db_obj = db.query(self.model).filter(self.model.id == entity_id).first()
         if db_obj:
-            update_data = obj_in.dict(exclude_unset=True)
+            update_data = obj_in.model_dump(exclude_unset=True)
             for key, value in update_data.items():
                 setattr(db_obj, key, value)
             db.commit()
