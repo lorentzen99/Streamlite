@@ -1,7 +1,7 @@
-# app/api/crud.py
-
-from sqlalchemy.orm import Session
-from typing import Type, TypeVar, Generic
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
+from typing import Optional, Type, TypeVar, Generic
 from pydantic import BaseModel
 
 ModelType = TypeVar('ModelType')
@@ -12,34 +12,57 @@ class CRUDGeneric(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     def __init__(self, model: Type[ModelType]):
         self.model = model
 
-    def get(self, db: Session, entity_id: int) -> ModelType:
-        return db.query(self.model).filter(self.model.id == entity_id).first()
+    async def get(self, db: AsyncSession, entity_id: int) -> ModelType:
+        try:
+            result = await db.execute(select(self.model).filter(self.model.id == entity_id))
+            return result.scalars().first()
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise e
 
-    def get_multi(self, db: Session, skip: int = 0, limit: int = 10) -> list:
-        return db.query(self.model).offset(skip).limit(limit).all()
+    async def get_multi(self, db: AsyncSession, skip: int = 0, limit: int = 10) -> list:
+        try:
+            result = await db.execute(select(self.model).offset(skip).limit(limit))
+            return result.scalars().all()
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise e
 
-    def create(self, db: Session, obj_in: CreateSchemaType) -> ModelType:
-        db_obj = self.model(**obj_in.model_dump())
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
+    async def create(self, db: AsyncSession, obj_in: CreateSchemaType) -> ModelType:
+        try:
+            db_obj = self.model(**obj_in.model_dump())
+            db.add(db_obj)
+            await db.commit()
+            await db.refresh(db_obj)
+            return db_obj
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise e
 
-    def update(
-        self, db: Session, entity_id: int, obj_in: UpdateSchemaType
-    ) -> ModelType:
-        db_obj = db.query(self.model).filter(self.model.id == entity_id).first()
-        if db_obj:
-            update_data = obj_in.model_dump(exclude_unset=True)
-            for key, value in update_data.items():
-                setattr(db_obj, key, value)
-            db.commit()
-            db.refresh(db_obj)
-        return db_obj
+    async def update(self, db: AsyncSession, entity_id: int, obj_in: UpdateSchemaType) -> ModelType:
+        try:
+            result = await db.execute(select(self.model).filter(self.model.id == entity_id))
+            db_obj = result.scalars().first()
+            if db_obj:
+                update_data = obj_in.dict(exclude_unset=True)
+                for key, value in update_data.items():
+                    setattr(db_obj, key, value)
+                await db.commit()
+                await db.refresh(db_obj)
+            return db_obj
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise e
 
-    def delete(self, db: Session, entity_id: int) -> ModelType:
-        db_obj = db.query(self.model).filter(self.model.id == entity_id).first()
-        if db_obj:
-            db.delete(db_obj)
-            db.commit()
-        return db_obj
+    async def delete(self, db: AsyncSession, entity_id: int) -> Optional[ModelType]:
+        try:
+            result = await db.execute(select(self.model).filter(self.model.id == entity_id))
+            db_obj = result.scalars().first()
+            if db_obj:
+                await db.delete(db_obj)
+                await db.commit()
+                return db_obj  # Return the deleted object or its ID as needed
+            return None  # Return None if the object was not found
+        except SQLAlchemyError as e:
+            await db.rollback()
+            raise e

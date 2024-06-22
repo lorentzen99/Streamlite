@@ -10,7 +10,7 @@ class UserCreate(BaseModel):
     full_name: str = Field(..., max_length=100, description="Full name of the user")
     hashed_password: str = Field(..., min_length=8, description="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character")
     email: EmailStr = Field(..., description="Email address of the user")
-    phone: str = Field(None, max_length=11, description="Phone number of the user")
+    phone: int = Field(None, description="Phone number of the user")
     role: str = Field(..., pattern=r'^(admin|user)$', description="Role of the user")
     is_admin: bool = Field(False, description="Whether the user is an admin or not")
     is_active: bool = Field(True, description="Whether the user is active or not")
@@ -34,6 +34,13 @@ class UserCreate(BaseModel):
         if not re.match(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$', v):
             raise ValueError('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character')
         return v
+    
+    @validator("phone", pre=True, always=True)
+    def check_phone_length(cls, v):
+        max_len = 8
+        if v is not None and (len(str(v)) > max_len):
+            raise ValueError(f"Phone number must not exceed {max_len} digits")
+        return v
 
     class Config:
         use_enum_values = True
@@ -55,7 +62,7 @@ class UserUpdate(BaseModel):
     full_name: str = Field(None, max_length=100, description="Full name of the user")
     hashed_password: str = Field(None, min_length=8, description="Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character")
     email: EmailStr = Field(None, description="Email address of the user")
-    phone: str = Field(None, max_length=11, description="Phone number of the user")
+    phone: int = Field(None, description="Phone number of the user")
     role: str = Field(None, pattern=r'^(admin|user)$', description="Role of the user")
     is_admin: bool = Field(None, description="Whether the user is an admin or not")
     is_active: bool = Field(None, description="Whether the user is active or not")
@@ -71,7 +78,7 @@ class UserOut(BaseModel):
     last_name: str
     full_name: str
     email: EmailStr
-    phone: str = None
+    phone: int|None = None
     role: str
     is_admin: bool
     is_active: bool
@@ -81,7 +88,6 @@ class UserOut(BaseModel):
 
 # Schema for user stored in DB
 class UserInDB(UserCreate):
-    id: int
     hashed_password: str
 
     class Config:
