@@ -5,7 +5,7 @@ from app.api.auth import get_current_active_user
 from app.api.crud.user import crud_user
 from app.api.models.user import User
 from app.api.schemas.user import UserCreate, UserUpdate, UserOut
-from app.api.dependencies.database import get_async_db  # Assume this is the async version of get_db
+from app.api.dependencies.database import get_async_db
 
 
 router = APIRouter()

@@ -9,8 +9,7 @@ class Product(Base):
     name = Column(String, unique=True, index=True)
     description = Column(String)
     price = Column(Float)
-    stock = Column(Integer)
     is_active = Column(Boolean, default=True)
 
     def __repr__(self):
-        return f"<Product(id={self.id}, name={self.name}, price={self.price}, stock={self.stock})>"
+        return f"<Product(id={self.id}, name={self.name}, price={self.price}>"
